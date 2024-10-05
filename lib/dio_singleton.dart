@@ -15,11 +15,7 @@ class DioSingleton {
   }
 
   final Dio dio = Dio(
-    BaseOptions(
-      headers: {
-        'Content-Type': "application/x-www-form-urlencoded",
-      },
-    ),
+    BaseOptions(responseType: ResponseType.bytes),
   );
 
   static Dio get instance => _instance.dio;

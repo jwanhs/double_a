@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 
 import 'package:animated_custom_dropdown/custom_dropdown.dart';
 import 'package:dio/dio.dart';
 import 'package:double_a/dio_singleton.dart';
+import 'package:double_a/models.dart';
 import 'package:flutter/material.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
@@ -21,9 +23,12 @@ Future<Response<dynamic>?> fetchTimetable() async {
       'https://wwwccb.hochschule-bochum.de/campusInfo/newslist/displayTimetable.php',
     );
 
-    log('Timetable Data:');
-    log(timetableResponse.data.toString());
-    return timetableResponse;
+    String responseString = latin1.decode(timetableResponse.data);
+
+    return Response(
+      data: responseString,
+      requestOptions: timetableResponse.requestOptions,
+    );
   } catch (e) {
     log('Error fetching timetable: $e');
   }
@@ -64,16 +69,79 @@ class _MainAppState extends State<MainApp> {
     }
   }
 
+  Future<void> searchTable() async {
+    try {
+      FormData formData = FormData.fromMap({
+        'lecturer_nr': lecturers.keys.where((element) {
+          return lecturers[element] == lecturerController.value;
+        }).first,
+        'room_nr': rooms.keys.where((element) {
+          return rooms[element] == roomController.value;
+        }).first,
+        'day_nr': days.keys.where((element) {
+          return days[element] == dayController.value;
+        }).first,
+        'time_nr': times.keys.where((element) {
+          return times[element] == timeController.value;
+        }).first,
+        'semestergroup_nr': semesters.keys.where((element) {
+          return semesters[element] == semesterController.value;
+        }).first,
+        'lm': 'l',
+        'print': '0',
+        'sendForm': 'Anzeigen',
+      });
+
+      Response loginResponse = await dio.post(
+        'https://wwwccb.hochschule-bochum.de/campusInfo/newslist/displayTimetable.php',
+        data: formData,
+      );
+
+      if (loginResponse.statusCode == 200) {
+        parseTable(latin1.decode(loginResponse.data));
+      } else {
+        log('Request failed: ${loginResponse.statusCode}');
+      }
+    } catch (e) {
+      log('Error on login: $e');
+    }
+  }
+
+  void parseTable(String htmlString) {
+    if (htmlString.isEmpty) {
+      log('Result body empty');
+    }
+
+    try {
+      dom.Document document = html_parser.parse(htmlString);
+
+      for (var table in document.querySelectorAll('table')) {
+        for (var row in table.querySelectorAll('tr')) {
+          for (var cell in row.querySelectorAll('td')) {
+            log(cell.text);
+          }
+        }
+      }
+    } catch (e) {
+      log('Error parsing table: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    lecturerController = SingleSelectController(lecturers.values.first);
+    roomController = SingleSelectController(rooms.values.first);
+    dayController = SingleSelectController(days.values.first);
+    timeController = SingleSelectController(times.values.first);
+    semesterController = SingleSelectController(semesters.values.first);
   }
 
-  List<String> lecturers = ["Select All"];
-  List<String> rooms = ["Select All"];
-  List<String> days = ["Select All"];
-  List<String> times = ["Select All"];
-  List<String> semesters = ["Select All"];
+  Map<dynamic, Lecturer> lecturers = {"%": const Lecturer("All Lecturers")};
+  Map<dynamic, Room> rooms = {"%": const Room("All Rooms")};
+  Map<dynamic, Day> days = {"%": const Day("All Days")};
+  Map<dynamic, Time> times = {"%": const Time("All Times")};
+  Map<dynamic, Semester> semesters = {"%": const Semester("All Semesters")};
 
   void sanitizeDropdownOptions(String htmlString) {
     if (htmlString.isEmpty) {
@@ -83,32 +151,53 @@ class _MainAppState extends State<MainApp> {
     try {
       dom.Document document = html_parser.parse(htmlString);
 
-      for (var lecturerOptions
+      for (var lecturerOption
           in document.querySelectorAll('select[name="lecturer_nr"] option')) {
-        if (lecturerOptions.attributes['value'] != '%') {
-          lecturers.add(lecturerOptions.text.trim());
+        if (lecturerOption.text.trim().endsWith(",")) {
+          // <option value="245">Abstoss, </option>
+          // add as {245: Abstoss}
+          lecturers[lecturerOption.attributes['value']] =
+              Lecturer(lecturerOption.text.trim().lastChars(1));
+        } else {
+          lecturers[lecturerOption.attributes['value']] =
+              Lecturer(lecturerOption.text.trim());
         }
       }
 
-      for (var roomOptions
+      for (var roomOption
           in document.querySelectorAll('select[name="room_nr"] option')) {
-        rooms.add(roomOptions.text.trim());
+        rooms[roomOption.attributes['value']] = Room(roomOption.text.trim());
       }
 
-      for (var dayOptions
+      for (var dayOption
           in document.querySelectorAll('select[name="day_nr"] option')) {
-        days.add(dayOptions.text.trim());
+        days[dayOption.attributes['value']] = Day(dayOption.text.trim());
       }
 
-      for (var timeOptions
+      for (var timeOption
           in document.querySelectorAll('select[name="time_nr"] option')) {
-        times.add(timeOptions.text.trim());
+        times[timeOption.attributes['value']] = Time(timeOption.text.trim());
       }
 
-      for (var semesterOptions in document
+      for (var semesterOption in document
           .querySelectorAll('select[name="semestergroup_nr"] option')) {
-        semesters.add(semesterOptions.text.trim());
+        semesters[semesterOption.attributes['value']] =
+            Semester(semesterOption.text.trim());
       }
+
+      lecturers[lecturers.keys.first] = const Lecturer("All Lecturers");
+      lecturerController.value = lecturers.values.first;
+      rooms[rooms.keys.first] = const Room("All Rooms");
+      rooms.remove(rooms.keys.elementAt(1));
+      roomController.value = rooms.values.first;
+      days[days.keys.first] = const Day("All Days");
+      dayController.value = days.values.first;
+      // lastSelectedDays = days.values.toList();
+      times[times.keys.first] = const Time("All Times");
+      timeController.value = times.values.first;
+      // lastSelectedTimes = times.values.toList();
+      semesters[semesters.keys.first] = const Semester("All Semesters");
+      semesterController.value = semesters.values.first;
 
       setState(() {});
     } catch (e) {
@@ -119,96 +208,127 @@ class _MainAppState extends State<MainApp> {
   TextEditingController usernameController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
 
+  late SingleSelectController<Lecturer> lecturerController =
+      SingleSelectController(null);
+  late SingleSelectController<Room> roomController =
+      SingleSelectController(null);
+  late SingleSelectController<Day> dayController = SingleSelectController(null);
+  late SingleSelectController<Time> timeController =
+      SingleSelectController(null);
+  late SingleSelectController<Semester> semesterController =
+      SingleSelectController(null);
+
+  List<Time> lastSelectedTimes = [];
+  List<Day> lastSelectedDays = [];
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: usernameController,
-              decoration: const InputDecoration(
-                hintText: 'Enter your username',
+        body: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextField(
+                controller: usernameController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter your username',
+                ),
               ),
-            ),
-            TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(
-                hintText: 'Enter your password',
+              TextField(
+                controller: passwordController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter your password',
+                ),
               ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await login(
-                    username: usernameController.text,
-                    password: passwordController.text);
-                sanitizeDropdownOptions(
-                    (await fetchTimetable())!.data.toString());
-              },
-              child: const Text('Login'),
-            ),
-            DropdownButton<String>(
-              hint: const Text('Select Lecturer'),
-              items: lecturers.map((String lecturer) {
-                return DropdownMenuItem<String>(
-                  value: lecturer,
-                  child: Text(lecturer),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {});
-              },
-            ),
-            DropdownButton<String>(
-              hint: const Text('Select Room'),
-              items: rooms.map((String room) {
-                return DropdownMenuItem<String>(
-                  value: room,
-                  child: Text(room),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {});
-              },
-            ),
-            DropdownButton<String>(
-              hint: const Text('Select Day'),
-              items: days.map((String day) {
-                return DropdownMenuItem<String>(
-                  value: day,
-                  child: Text(day),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {});
-              },
-            ),
-            DropdownButton<String>(
-              hint: const Text('Select Time'),
-              items: times.map((String time) {
-                return DropdownMenuItem<String>(
-                  value: time,
-                  child: Text(time),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {});
-              },
-            ),
-            DropdownButton<String>(
-              hint: const Text('Select Semester'),
-              items: semesters.map((String semester) {
-                return DropdownMenuItem<String>(
-                  value: semester,
-                  child: Text(semester),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {});
-              },
-            ),
-          ],
+              ElevatedButton(
+                onPressed: () async {
+                  await login(
+                      username: usernameController.text,
+                      password: passwordController.text);
+                  sanitizeDropdownOptions(
+                      (await fetchTimetable())!.data.toString());
+                },
+                child: const Text('Login'),
+              ),
+              CustomDropdown<Lecturer>.search(
+                controller: lecturerController,
+                decoration: const CustomDropdownDecoration(
+                  prefixIcon: Icon(Icons.person_search),
+                  searchFieldDecoration: SearchFieldDecoration(
+                    prefixIcon: Icon(Icons.manage_search),
+                  ),
+                ),
+                hintText: 'Lecturer',
+                items: lecturers.values.toList(),
+                excludeSelected: false,
+                onChanged: (value) {
+                  log('changing value to: $value');
+                },
+              ),
+              CustomDropdown<Room>.search(
+                controller: roomController,
+                decoration: const CustomDropdownDecoration(
+                  prefixIcon: Icon(Icons.class_outlined),
+                  searchFieldDecoration: SearchFieldDecoration(
+                    prefixIcon: Icon(Icons.manage_search),
+                  ),
+                ),
+                hintText: 'Room',
+                items: rooms.values.toList(),
+                excludeSelected: false,
+                onChanged: (value) {
+                  log('changing value to: $value');
+                },
+              ),
+              CustomDropdown<Day>(
+                controller: dayController,
+                decoration: const CustomDropdownDecoration(
+                  prefixIcon: Icon(Icons.sunny_snowing),
+                ),
+                hintText: 'Day',
+                items: days.values.toList(),
+                excludeSelected: false,
+                onChanged: (value) {
+                  log('changing value to: $value');
+                },
+              ),
+              CustomDropdown<Time>(
+                decoration: const CustomDropdownDecoration(
+                  prefixIcon: Icon(Icons.av_timer),
+                  searchFieldDecoration: SearchFieldDecoration(
+                    prefixIcon: Icon(Icons.manage_search),
+                  ),
+                ),
+                hintText: 'Time',
+                items: times.values.toList(),
+                controller: timeController,
+                excludeSelected: false,
+                onChanged: (value) {},
+              ),
+              CustomDropdown<Semester>.search(
+                controller: semesterController,
+                decoration: const CustomDropdownDecoration(
+                  prefixIcon: Icon(Icons.school),
+                  searchFieldDecoration: SearchFieldDecoration(
+                    prefixIcon: Icon(Icons.manage_search),
+                  ),
+                ),
+                hintText: 'Semester',
+                items: semesters.values.toList(),
+                excludeSelected: false,
+                onChanged: (value) {
+                  log('changing value to: $value');
+                },
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  searchTable();
+                },
+                child: const Text('Search'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -224,17 +344,6 @@ class MyHttpOverrides extends HttpOverrides {
   }
 }
 
-class Lecturer with CustomDropdownListFilter {
-  final String name;
-  const Lecturer(this.name);
-
-  @override
-  String toString() {
-    return name;
-  }
-
-  @override
-  bool filter(String query) {
-    return name.toLowerCase().contains(query.toLowerCase());
-  }
+extension E on String {
+  String lastChars(int n) => substring(0, length - n);
 }

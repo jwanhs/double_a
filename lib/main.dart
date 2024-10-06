@@ -4,11 +4,16 @@ import 'dart:io';
 
 import 'package:animated_custom_dropdown/custom_dropdown.dart';
 import 'package:dio/dio.dart';
+import 'package:double_a/calendar.dart';
 import 'package:double_a/dio_singleton.dart';
 import 'package:double_a/models.dart';
+import 'package:double_a/theme.dart';
 import 'package:flutter/material.dart';
-import 'package:html/parser.dart' as html_parser;
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:syncfusion_localizations/syncfusion_localizations.dart';
 
 Dio dio = DioSingleton.instance;
 void main() async {
@@ -112,16 +117,24 @@ class _MainAppState extends State<MainApp> {
       log('Result body empty');
     }
 
+    tableData.clear();
+
     try {
       dom.Document document = html_parser.parse(htmlString);
 
       for (var table in document.querySelectorAll('table')) {
-        for (var row in table.querySelectorAll('tr')) {
+        var rows = table.querySelectorAll('tr').skip(1);
+
+        for (var row in rows) {
           for (var cell in row.querySelectorAll('td')) {
-            log(cell.text);
+            if (cell.text.isNotEmpty) {
+              tableData.add(cell.text);
+            }
           }
         }
       }
+      classSessions = parseToClassSessions(tableData);
+      setState(() {});
     } catch (e) {
       log('Error parsing table: $e');
     }
@@ -224,108 +237,261 @@ class _MainAppState extends State<MainApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: lightThemeData,
+      darkTheme: darkThemeData,
+      themeMode: ThemeMode.system,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        SfGlobalLocalizations.delegate
+      ],
+      supportedLocales: const [
+        Locale('de'),
+      ],
+      locale: const Locale('de'),
       home: Scaffold(
-        body: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        body: SafeArea(
+          child: Stack(
             children: [
-              TextField(
-                controller: usernameController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter your username',
-                ),
-              ),
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter your password',
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  await login(
-                      username: usernameController.text,
-                      password: passwordController.text);
-                  sanitizeDropdownOptions(
-                      (await fetchTimetable())!.data.toString());
-                },
-                child: const Text('Login'),
-              ),
-              CustomDropdown<Lecturer>.search(
-                controller: lecturerController,
-                decoration: const CustomDropdownDecoration(
-                  prefixIcon: Icon(Icons.person_search),
-                  searchFieldDecoration: SearchFieldDecoration(
-                    prefixIcon: Icon(Icons.manage_search),
+              PageView(
+                controller: pageIndicatorController,
+                children: [
+                  SingleChildScrollView(
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Column(
+                            children: [
+                              Column(
+                                children: [
+                                  TextField(
+                                    controller: usernameController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Benutzername eingeben',
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 16.0, vertical: 12.0),
+                                      constraints: BoxConstraints(
+                                          maxWidth: MediaQuery.of(context)
+                                                  .size
+                                                  .width *
+                                              0.9),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8.0),
+                                  TextField(
+                                    obscureText: true,
+                                    controller: passwordController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Kennwort eingeben',
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 16.0, vertical: 12.0),
+                                      constraints: BoxConstraints(
+                                          maxWidth: MediaQuery.of(context)
+                                                  .size
+                                                  .width *
+                                              0.9),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2.0),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  await login(
+                                      username: usernameController.text,
+                                      password: passwordController.text);
+                                  sanitizeDropdownOptions(
+                                      (await fetchTimetable())!
+                                          .data
+                                          .toString());
+                                },
+                                child: const Text('Anmelden'),
+                              ),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8.0),
+                                child: Theme(
+                                  data: ThemeData(),
+                                  child: Column(
+                                    children: [
+                                      const SizedBox(height: 10),
+                                      CustomDropdown<Lecturer>.search(
+                                        controller: lecturerController,
+                                        decoration:
+                                            const CustomDropdownDecoration(
+                                          headerStyle: TextStyle(
+                                            fontSize: 16,
+                                            color: Color(
+                                              0xFFEF6C00,
+                                            ),
+                                          ),
+                                          expandedFillColor: Color(0xFFFBEFE2),
+                                          prefixIcon: Icon(Icons.person_search),
+                                          searchFieldDecoration:
+                                              SearchFieldDecoration(
+                                            prefixIcon:
+                                                Icon(Icons.manage_search),
+                                          ),
+                                        ),
+                                        hintText: 'Dozent/in',
+                                        items: lecturers.values.toList(),
+                                        excludeSelected: false,
+                                        onChanged: (value) {
+                                          log('changing value to: $value');
+                                        },
+                                      ),
+                                      const SizedBox(height: 8),
+                                      CustomDropdown<Room>.search(
+                                        controller: roomController,
+                                        decoration:
+                                            const CustomDropdownDecoration(
+                                          headerStyle: TextStyle(
+                                            fontSize: 16,
+                                            color: Color(
+                                              0xFFEF6C00,
+                                            ),
+                                          ),
+                                          expandedFillColor: Color(0xFFFBEFE2),
+                                          prefixIcon:
+                                              Icon(Icons.class_outlined),
+                                          searchFieldDecoration:
+                                              SearchFieldDecoration(
+                                            prefixIcon:
+                                                Icon(Icons.manage_search),
+                                          ),
+                                        ),
+                                        hintText: 'Raum',
+                                        items: rooms.values.toList(),
+                                        excludeSelected: false,
+                                        onChanged: (value) {
+                                          log('changing value to: $value');
+                                        },
+                                      ),
+                                      const SizedBox(height: 8),
+                                      CustomDropdown<Day>(
+                                        controller: dayController,
+                                        decoration:
+                                            const CustomDropdownDecoration(
+                                          headerStyle: TextStyle(
+                                            fontSize: 16,
+                                            color: Color(
+                                              0xFFEF6C00,
+                                            ),
+                                          ),
+                                          expandedFillColor: Color(0xFFFBEFE2),
+                                          prefixIcon: Icon(Icons.sunny_snowing),
+                                        ),
+                                        hintText: 'Tag',
+                                        items: days.values.toList(),
+                                        excludeSelected: false,
+                                        onChanged: (value) {
+                                          log('changing value to: $value');
+                                        },
+                                      ),
+                                      const SizedBox(height: 8),
+                                      CustomDropdown<Time>(
+                                        decoration:
+                                            const CustomDropdownDecoration(
+                                          headerStyle: TextStyle(
+                                            fontSize: 16,
+                                            color: Color(
+                                              0xFFEF6C00,
+                                            ),
+                                          ),
+                                          expandedFillColor: Color(0xFFFBEFE2),
+                                          prefixIcon: Icon(Icons.av_timer),
+                                          searchFieldDecoration:
+                                              SearchFieldDecoration(
+                                            prefixIcon:
+                                                Icon(Icons.manage_search),
+                                          ),
+                                        ),
+                                        hintText: 'Zeit',
+                                        items: times.values.toList(),
+                                        controller: timeController,
+                                        excludeSelected: false,
+                                        onChanged: (value) {},
+                                      ),
+                                      const SizedBox(height: 8),
+                                      CustomDropdown<Semester>.search(
+                                        controller: semesterController,
+                                        decoration:
+                                            const CustomDropdownDecoration(
+                                          headerStyle: TextStyle(
+                                            fontSize: 16,
+                                            color: Color(
+                                              0xFFEF6C00,
+                                            ),
+                                          ),
+                                          expandedFillColor: Color(0xFFFBEFE2),
+                                          prefixIcon: Icon(Icons.school),
+                                          searchFieldDecoration:
+                                              SearchFieldDecoration(
+                                            prefixIcon:
+                                                Icon(Icons.manage_search),
+                                          ),
+                                        ),
+                                        hintText: 'Semester',
+                                        items: semesters.values.toList(),
+                                        excludeSelected: false,
+                                        onChanged: (value) {
+                                          log('changing value to: $value');
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  await searchTable();
+                                },
+                                child: const Text('Suchen'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                hintText: 'Lecturer',
-                items: lecturers.values.toList(),
-                excludeSelected: false,
-                onChanged: (value) {
-                  log('changing value to: $value');
-                },
-              ),
-              CustomDropdown<Room>.search(
-                controller: roomController,
-                decoration: const CustomDropdownDecoration(
-                  prefixIcon: Icon(Icons.class_outlined),
-                  searchFieldDecoration: SearchFieldDecoration(
-                    prefixIcon: Icon(Icons.manage_search),
+                  SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CustomCalendar(classSessions: classSessions),
+                      ],
+                    ),
                   ),
-                ),
-                hintText: 'Room',
-                items: rooms.values.toList(),
-                excludeSelected: false,
-                onChanged: (value) {
-                  log('changing value to: $value');
-                },
+                ],
               ),
-              CustomDropdown<Day>(
-                controller: dayController,
-                decoration: const CustomDropdownDecoration(
-                  prefixIcon: Icon(Icons.sunny_snowing),
-                ),
-                hintText: 'Day',
-                items: days.values.toList(),
-                excludeSelected: false,
-                onChanged: (value) {
-                  log('changing value to: $value');
-                },
-              ),
-              CustomDropdown<Time>(
-                decoration: const CustomDropdownDecoration(
-                  prefixIcon: Icon(Icons.av_timer),
-                  searchFieldDecoration: SearchFieldDecoration(
-                    prefixIcon: Icon(Icons.manage_search),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SmoothPageIndicator(
+                  controller: pageIndicatorController,
+                  count: 2,
+                  effect: const JumpingDotEffect(
+                    dotColor: Color(0xFFFFBE93),
+                    activeDotColor: Color(0xFFEF6C00),
                   ),
+                  onDotClicked: (index) {
+                    pageIndicatorController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeIn,
+                    );
+                  },
                 ),
-                hintText: 'Time',
-                items: times.values.toList(),
-                controller: timeController,
-                excludeSelected: false,
-                onChanged: (value) {},
-              ),
-              CustomDropdown<Semester>.search(
-                controller: semesterController,
-                decoration: const CustomDropdownDecoration(
-                  prefixIcon: Icon(Icons.school),
-                  searchFieldDecoration: SearchFieldDecoration(
-                    prefixIcon: Icon(Icons.manage_search),
-                  ),
-                ),
-                hintText: 'Semester',
-                items: semesters.values.toList(),
-                excludeSelected: false,
-                onChanged: (value) {
-                  log('changing value to: $value');
-                },
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  searchTable();
-                },
-                child: const Text('Search'),
               ),
             ],
           ),
@@ -333,6 +499,46 @@ class _MainAppState extends State<MainApp> {
       ),
     );
   }
+
+  final pageIndicatorController =
+      PageController(viewportFraction: 1, initialPage: 0);
+}
+
+List<String> tableData = [];
+List<ClassSession> classSessions = [];
+
+List<ClassSession> parseToClassSessions(List<String> data) {
+  List<ClassSession> sessions = [];
+  String? dozent, veranstaltung, tag, zeit, raum;
+  int i = 0;
+
+  for (String info in data) {
+    if (i == 0) {
+      dozent = info;
+    } else if (i == 1) {
+      veranstaltung = info;
+    } else if (i == 2) {
+      tag = info;
+    } else if (i == 3) {
+      zeit = info;
+    } else if (i == 4) {
+      raum = info;
+
+      sessions.add(ClassSession(
+        dozent: dozent!,
+        veranstatlung: veranstaltung!,
+        tag: tag!,
+        zeit: zeit!,
+        raum: raum,
+      ));
+
+      i = -1;
+    }
+
+    i++;
+  }
+
+  return sessions;
 }
 
 class MyHttpOverrides extends HttpOverrides {

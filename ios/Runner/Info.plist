@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Permission for calendar is required in adding class sessions.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Permission for event attendees as per device_calendar 4.3.3 documentation.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Permission for sufficient calendar functions as per device_calendar 4.3.3 documentation.</string>
 </dict>
 </plist>

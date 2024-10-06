@@ -329,6 +329,11 @@ class _MainAppState extends State<MainApp> {
                                         controller: lecturerController,
                                         decoration:
                                             const CustomDropdownDecoration(
+                                          listItemDecoration:
+                                              ListItemDecoration(
+                                            selectedColor: Color.fromARGB(
+                                                180, 255, 224, 153),
+                                          ),
                                           headerStyle: TextStyle(
                                             fontSize: 16,
                                             color: Color(
@@ -355,6 +360,11 @@ class _MainAppState extends State<MainApp> {
                                         controller: roomController,
                                         decoration:
                                             const CustomDropdownDecoration(
+                                          listItemDecoration:
+                                              ListItemDecoration(
+                                            selectedColor: Color.fromARGB(
+                                                180, 255, 224, 153),
+                                          ),
                                           headerStyle: TextStyle(
                                             fontSize: 16,
                                             color: Color(
@@ -382,6 +392,11 @@ class _MainAppState extends State<MainApp> {
                                         controller: dayController,
                                         decoration:
                                             const CustomDropdownDecoration(
+                                          listItemDecoration:
+                                              ListItemDecoration(
+                                            selectedColor: Color.fromARGB(
+                                                180, 255, 224, 153),
+                                          ),
                                           headerStyle: TextStyle(
                                             fontSize: 16,
                                             color: Color(
@@ -402,6 +417,11 @@ class _MainAppState extends State<MainApp> {
                                       CustomDropdown<Time>(
                                         decoration:
                                             const CustomDropdownDecoration(
+                                          listItemDecoration:
+                                              ListItemDecoration(
+                                            selectedColor: Color.fromARGB(
+                                                180, 255, 224, 153),
+                                          ),
                                           headerStyle: TextStyle(
                                             fontSize: 16,
                                             color: Color(
@@ -427,6 +447,11 @@ class _MainAppState extends State<MainApp> {
                                         controller: semesterController,
                                         decoration:
                                             const CustomDropdownDecoration(
+                                          listItemDecoration:
+                                              ListItemDecoration(
+                                            selectedColor: Color.fromARGB(
+                                                180, 255, 224, 153),
+                                          ),
                                           headerStyle: TextStyle(
                                             fontSize: 16,
                                             color: Color(

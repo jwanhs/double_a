@@ -1,4 +1,4 @@
-package eu.haey.double_a.double_a
+package eu.haey.double_a
 
 import io.flutter.embedding.android.FlutterActivity
 

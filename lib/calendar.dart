@@ -15,15 +15,22 @@ class CustomCalendar extends StatefulWidget {
 }
 
 class _CustomCalendarState extends State<CustomCalendar> {
+  bool exportLoading = false;
+
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        const SizedBox(height: 5),
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.8,
           width: MediaQuery.of(context).size.width * 0.9,
           child: SfCalendar(
+            headerStyle: const CalendarHeaderStyle(
+              textAlign: TextAlign.right,
+              backgroundColor: Color(0xFFFBEFE3),
+            ),
             view: CalendarView.day,
             dataSource: ClassDataSource(getAppointments(widget.classSessions)),
             timeSlotViewSettings: const TimeSlotViewSettings(
@@ -32,6 +39,12 @@ class _CustomCalendarState extends State<CustomCalendar> {
             ),
           ),
         ),
+        const SizedBox(height: 4),
+        LinearProgressIndicator(
+          value: exportLoading ? null : 0,
+          minHeight: 3,
+        ),
+        const SizedBox(height: 2),
         ElevatedButton.icon(
           icon: const Icon(Icons.edit_calendar_rounded),
           onPressed: () async {
@@ -41,6 +54,119 @@ class _CustomCalendarState extends State<CustomCalendar> {
         ),
       ],
     );
+  }
+
+  Future<void> exportToDeviceCalendar(
+      BuildContext context, List<ClassSession> sessions) async {
+    tz.initializeTimeZones();
+    final DeviceCalendarPlugin deviceCalendarPlugin = DeviceCalendarPlugin();
+
+    var permissionsGranted = await deviceCalendarPlugin.hasPermissions();
+    if (permissionsGranted.isSuccess && !permissionsGranted.data!) {
+      permissionsGranted = await deviceCalendarPlugin.requestPermissions();
+      if (!permissionsGranted.isSuccess || !permissionsGranted.data!) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Kalendarberechtigungen nicht erteilt'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+      }
+    }
+
+    if (context.mounted) {
+      final calendarName = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          final controller = TextEditingController();
+          return AlertDialog(
+            title: const Text('Kalendername'),
+            content: TextField(
+              onSubmitted: (value) {
+                Navigator.of(context).pop(controller.text);
+                setState(() {
+                  exportLoading = true;
+                });
+              },
+              controller: controller,
+              decoration: const InputDecoration(
+                  hintText: 'neuen Kalendernamen vergeben'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop(controller.text);
+                  setState(() {
+                    exportLoading = true;
+                  });
+                },
+                child: const Text('Weiter'),
+              ),
+            ],
+          );
+        },
+      );
+
+      await deviceCalendarPlugin.createCalendar(calendarName!);
+
+      final retrievedCalendars = await deviceCalendarPlugin.retrieveCalendars();
+      final selectedCalendar = retrievedCalendars.data?.firstWhere(
+        (element) => element.name == calendarName,
+      );
+
+      for (var session in sessions) {
+        final startTime =
+            _parseLocalDateTime(session.tag, session.zeit.split('-')[0]);
+        final endTime =
+            _parseLocalDateTime(session.tag, session.zeit.split('-')[1]);
+
+        final tz.TZDateTime tzStartTime =
+            tz.TZDateTime.from(startTime, tz.local);
+        final tz.TZDateTime tzEndTime = tz.TZDateTime.from(endTime, tz.local);
+
+        final eventToCreate = Event(
+          selectedCalendar?.id,
+          title: session.veranstatlung,
+          description: 'Dozent(in): ${session.dozent}',
+          start: tzStartTime,
+          end: tzEndTime,
+          location: session.raum,
+        );
+
+        eventToCreate.recurrenceRule = RecurrenceRule(
+          RecurrenceFrequency.Weekly,
+          interval: 1,
+          endDate: tz.TZDateTime.now(tz.local).add(const Duration(days: 119)),
+        );
+
+        final createEventResult =
+            await deviceCalendarPlugin.createOrUpdateEvent(eventToCreate);
+
+        if (createEventResult?.isSuccess ?? false) {
+          print(
+              'Event created: ${session.veranstatlung} from ${startTime.toString()} to ${endTime.toString()}');
+        } else {
+          print('Failed to create event: ${session.veranstatlung}');
+        }
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+                '${sessions.length} Veranstaltungen in den Gerätekalender exportiert'),
+          ),
+        );
+
+        setState(() {
+          exportLoading = false;
+        });
+      }
+    }
   }
 }
 
@@ -87,7 +213,7 @@ List<Appointment> getAppointments(List<ClassSession> sessions) {
         endTime: end,
         subject: session.veranstatlung,
         location: session.raum,
-        notes: 'Dozent: ${session.dozent}',
+        notes: 'Dozent(in): ${session.dozent}',
         recurrenceRule:
             'FREQ=WEEKLY;BYDAY=${_getRecurrenceDayString(weekday)};INTERVAL=1',
       ),
@@ -99,9 +225,9 @@ List<Appointment> getAppointments(List<ClassSession> sessions) {
 
 DateTime _parseTime(String time) {
   var parts = time.split(':');
-  var now = tz.TZDateTime.now(tz.local);
-  return tz.TZDateTime(tz.local, now.year, now.month, now.day,
-      int.parse(parts[0]), int.parse(parts[1]));
+  var now = DateTime.now();
+  return DateTime(
+      now.year, now.month, now.day, int.parse(parts[0]), int.parse(parts[1]));
 }
 
 String _getRecurrenceDayString(int weekday) {
@@ -146,111 +272,21 @@ int _parseWeekday(String tag) {
   }
 }
 
-tz.TZDateTime _parseTZDateTime(String day, String time) {
+DateTime _parseLocalDateTime(String day, String time) {
   int weekday = _parseWeekday(day);
-  tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-  tz.TZDateTime dateTime = tz.TZDateTime(
-    tz.local,
-    now.year,
-    now.month,
-    now.day,
-    0,
-    0,
-  );
+  DateTime now = DateTime.now();
 
+  DateTime dateTime = DateTime(now.year, now.month, now.day);
   while (dateTime.weekday != weekday) {
     dateTime = dateTime.add(const Duration(days: 1));
   }
 
   List<int> timeComponents = time.split(':').map(int.parse).toList();
-  return dateTime
-      .add(Duration(hours: timeComponents[0], minutes: timeComponents[1]));
-}
-
-Future<void> exportToDeviceCalendar(BuildContext context, List sessions) async {
-  tz.initializeTimeZones();
-  final DeviceCalendarPlugin deviceCalendarPlugin = DeviceCalendarPlugin();
-
-  var permissionsGranted = await deviceCalendarPlugin.hasPermissions();
-  if (permissionsGranted.isSuccess && !permissionsGranted.data!) {
-    permissionsGranted = await deviceCalendarPlugin.requestPermissions();
-    if (!permissionsGranted.isSuccess || !permissionsGranted.data!) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Calendar permissions not granted')),
-        );
-        return;
-      }
-    }
-  }
-
-  // dialog for calendar name
-  if (context.mounted) {
-    final calendarName = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text('Kalendername'),
-          content: TextField(
-            controller: controller,
-            decoration:
-                const InputDecoration(hintText: 'neuen Kalendernamen vergeben'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, controller.text);
-              },
-              child: const Text('Weiter'),
-            ),
-          ],
-        );
-      },
-    );
-
-    await deviceCalendarPlugin.createCalendar(calendarName!);
-
-    final retrievedCalendars = await deviceCalendarPlugin.retrieveCalendars();
-    final selectedCalendar = retrievedCalendars.data?.firstWhere(
-      (element) => element.name == calendarName,
-    );
-
-    for (var session in sessions) {
-      final startTime =
-          _parseTZDateTime(session.tag, session.zeit.split('-')[0]);
-      final endTime = _parseTZDateTime(session.tag, session.zeit.split('-')[1]);
-
-      final eventToCreate = Event(
-        selectedCalendar?.id,
-        title: session.veranstatlung,
-        description: 'Dozent(in): ${session.dozent}',
-        start: startTime,
-        end: endTime,
-        location: session.raum,
-      );
-
-      eventToCreate.recurrenceRule = RecurrenceRule(
-        RecurrenceFrequency.Weekly,
-        interval: 1,
-        endDate: tz.TZDateTime.now(tz.local)
-            .add(const Duration(days: 365)), // End after one year
-      );
-
-      final createEventResult =
-          await deviceCalendarPlugin.createOrUpdateEvent(eventToCreate);
-
-      if (createEventResult?.isSuccess ?? false) {
-        print(
-            'Event created: ${session.veranstatlung} from ${startTime.toString()} to ${endTime.toString()}');
-      } else {
-        print('Failed to create event: ${session.veranstatlung}');
-      }
-    }
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All events exported to calendar')),
-      );
-    }
-  }
+  return DateTime(
+    dateTime.year,
+    dateTime.month,
+    dateTime.day,
+    timeComponents[0],
+    timeComponents[1],
+  );
 }

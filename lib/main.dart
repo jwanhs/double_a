@@ -14,11 +14,13 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:syncfusion_localizations/syncfusion_localizations.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
 Dio dio = DioSingleton.instance;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
+  tz.initializeTimeZones();
   runApp(const MainApp());
 }
 
@@ -65,7 +67,7 @@ class _MainAppState extends State<MainApp> {
       );
 
       if (loginResponse.statusCode == 200) {
-        log('POST successful');
+        log(loginResponse.data.toString());
       } else {
         log('Request failed: ${loginResponse.statusCode}');
       }
@@ -150,13 +152,13 @@ class _MainAppState extends State<MainApp> {
     semesterController = SingleSelectController(semesters.values.first);
   }
 
-  Map<dynamic, Lecturer> lecturers = {"%": const Lecturer("All Lecturers")};
-  Map<dynamic, Room> rooms = {"%": const Room("All Rooms")};
-  Map<dynamic, Day> days = {"%": const Day("All Days")};
-  Map<dynamic, Time> times = {"%": const Time("All Times")};
-  Map<dynamic, Semester> semesters = {"%": const Semester("All Semesters")};
+  Map<dynamic, Lecturer> lecturers = {"%": const Lecturer("Alle Dozenten")};
+  Map<dynamic, Room> rooms = {"%": const Room("Alle Räume")};
+  Map<dynamic, Day> days = {"%": const Day("Alle Tage")};
+  Map<dynamic, Time> times = {"%": const Time("Alle Zeiten")};
+  Map<dynamic, Semester> semesters = {"%": const Semester("Alle Semester")};
 
-  void sanitizeDropdownOptions(String htmlString) {
+  void sanitizeDropdownOptions(BuildContext context, String htmlString) {
     if (htmlString.isEmpty) {
       log('Result body empty');
     }
@@ -198,23 +200,31 @@ class _MainAppState extends State<MainApp> {
             Semester(semesterOption.text.trim());
       }
 
-      lecturers[lecturers.keys.first] = const Lecturer("All Lecturers");
+      lecturers[lecturers.keys.first] = const Lecturer("Alle Dozenten");
       lecturerController.value = lecturers.values.first;
-      rooms[rooms.keys.first] = const Room("All Rooms");
+      rooms[rooms.keys.first] = const Room("Alle Räume");
       rooms.remove(rooms.keys.elementAt(1));
       roomController.value = rooms.values.first;
-      days[days.keys.first] = const Day("All Days");
+      days[days.keys.first] = const Day("Alle Tage");
       dayController.value = days.values.first;
       // lastSelectedDays = days.values.toList();
-      times[times.keys.first] = const Time("All Times");
+      times[times.keys.first] = const Time("Alle Zeiten");
       timeController.value = times.values.first;
       // lastSelectedTimes = times.values.toList();
-      semesters[semesters.keys.first] = const Semester("All Semesters");
+      semesters[semesters.keys.first] = const Semester("Alle Semester");
       semesterController.value = semesters.values.first;
 
       setState(() {});
     } catch (e) {
-      log('Error parsing options: $e');
+      log('Error parsing dropdown options: $e');
+      ScaffoldMessenger.of(_scaffoldKey.currentContext!).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            "Fehler bei der Abfrage. Bitte Anmeldedaten prüfen und erneut versuchen.",
+          ),
+        ),
+      );
     }
   }
 
@@ -234,6 +244,8 @@ class _MainAppState extends State<MainApp> {
   List<Time> lastSelectedTimes = [];
   List<Day> lastSelectedDays = [];
 
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -252,6 +264,8 @@ class _MainAppState extends State<MainApp> {
       ],
       locale: const Locale('de'),
       home: Scaffold(
+        key: _scaffoldKey,
+        resizeToAvoidBottomInset: false,
         body: SafeArea(
           child: Stack(
             children: [
@@ -260,7 +274,7 @@ class _MainAppState extends State<MainApp> {
                 children: [
                   SingleChildScrollView(
                     child: SizedBox(
-                      height: MediaQuery.of(context).size.height,
+                      height: MediaQuery.of(context).size.height * 0.9,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -306,10 +320,18 @@ class _MainAppState extends State<MainApp> {
                                   await login(
                                       username: usernameController.text,
                                       password: passwordController.text);
-                                  sanitizeDropdownOptions(
-                                      (await fetchTimetable())!
-                                          .data
-                                          .toString());
+                                  if (context.mounted) {
+                                    FocusScope.of(context).unfocus();
+                                  }
+                                  {
+                                    sanitizeDropdownOptions(
+                                        context.mounted == true
+                                            ? context
+                                            : context,
+                                        (await fetchTimetable())!
+                                            .data
+                                            .toString());
+                                  }
                                 },
                                 child: const Text('Anmelden'),
                               ),
@@ -324,7 +346,7 @@ class _MainAppState extends State<MainApp> {
                                   data: ThemeData(),
                                   child: Column(
                                     children: [
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 6),
                                       CustomDropdown<Lecturer>.search(
                                         controller: lecturerController,
                                         decoration:
@@ -481,6 +503,12 @@ class _MainAppState extends State<MainApp> {
                               ElevatedButton(
                                 onPressed: () async {
                                   await searchTable();
+                                  // swipe page
+                                  pageIndicatorController.animateToPage(
+                                    1,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeIn,
+                                  );
                                 },
                                 child: const Text('Suchen'),
                               ),
@@ -500,22 +528,27 @@ class _MainAppState extends State<MainApp> {
                   ),
                 ],
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SmoothPageIndicator(
-                  controller: pageIndicatorController,
-                  count: 2,
-                  effect: const JumpingDotEffect(
-                    dotColor: Color(0xFFFFBE93),
-                    activeDotColor: Color(0xFFEF6C00),
+              Positioned(
+                right: 0,
+                left: 0,
+                bottom: 10,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SmoothPageIndicator(
+                    controller: pageIndicatorController,
+                    count: 2,
+                    effect: const JumpingDotEffect(
+                      dotColor: Color(0xFFFFBE93),
+                      activeDotColor: Color(0xFFEF6C00),
+                    ),
+                    onDotClicked: (index) {
+                      pageIndicatorController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeIn,
+                      );
+                    },
                   ),
-                  onDotClicked: (index) {
-                    pageIndicatorController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeIn,
-                    );
-                  },
                 ),
               ),
             ],

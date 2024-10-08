@@ -9,6 +9,7 @@ import 'package:double_a/dio_singleton.dart';
 import 'package:double_a/models.dart';
 import 'package:double_a/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -19,7 +20,11 @@ import 'package:timezone/data/latest.dart' as tz;
 Dio dio = DioSingleton.instance;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  HttpOverrides.global = MyHttpOverrides();
+  ByteData data =
+      await PlatformAssetBundle().load('assets/ca/lets-encrypt-r3.pem');
+  SecurityContext.defaultContext
+      .setTrustedCertificatesBytes(data.buffer.asUint8List());
+
   tz.initializeTimeZones();
   runApp(const MainApp());
 }
@@ -597,15 +602,6 @@ List<ClassSession> parseToClassSessions(List<String> data) {
   }
 
   return sessions;
-}
-
-class MyHttpOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context)
-      ..badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
-  }
 }
 
 extension E on String {

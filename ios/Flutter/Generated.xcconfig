@@ -2,13 +2,13 @@
 FLUTTER_ROOT=/Users/hajs/Documents/flutter
 FLUTTER_APPLICATION_PATH=/Volumes/Y8ZX8/31/haey/double_a
 COCOAPODS_PARALLEL_CODE_SIGN=true
-FLUTTER_TARGET=/Volumes/Y8ZX8/31/haey/double_a/lib/main.dart
+FLUTTER_TARGET=lib/main.dart
 FLUTTER_BUILD_DIR=build
 FLUTTER_BUILD_NAME=0.1.0
 FLUTTER_BUILD_NUMBER=0.1.0
 EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386
 EXCLUDED_ARCHS[sdk=iphoneos*]=armv7
 DART_OBFUSCATION=false
-TRACK_WIDGET_CREATION=true
-TREE_SHAKE_ICONS=false
+TRACK_WIDGET_CREATION=false
+TREE_SHAKE_ICONS=true
 PACKAGE_CONFIG=/Volumes/Y8ZX8/31/haey/double_a/.dart_tool/package_config.json

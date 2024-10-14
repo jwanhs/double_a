@@ -256,7 +256,7 @@ class _MainAppState extends State<MainApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: lightThemeData,
-      darkTheme: darkThemeData,
+      darkTheme: lightThemeData,
       themeMode: ThemeMode.system,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

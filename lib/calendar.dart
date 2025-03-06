@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:device_calendar/device_calendar.dart';
 import 'package:double_a/models.dart';
 import 'package:flutter/material.dart';
@@ -137,19 +139,18 @@ class _CustomCalendarState extends State<CustomCalendar> {
         );
 
         eventToCreate.recurrenceRule = RecurrenceRule(
-          RecurrenceFrequency.Weekly,
+          frequency: Frequency.weekly,
           interval: 1,
-          endDate: tz.TZDateTime.now(tz.local).add(const Duration(days: 119)),
+          until: tz.TZDateTime.now(tz.local).add(const Duration(days: 119)),
         );
 
         final createEventResult =
             await deviceCalendarPlugin.createOrUpdateEvent(eventToCreate);
 
         if (createEventResult?.isSuccess ?? false) {
-          print(
-              'Event created: ${session.veranstatlung} from ${startTime.toString()} to ${endTime.toString()}');
+          log('Event created: ${session.veranstatlung} from ${startTime.toString()} to ${endTime.toString()}');
         } else {
-          print('Failed to create event: ${session.veranstatlung}');
+          log('Failed to create event: ${session.veranstatlung}');
         }
       }
 

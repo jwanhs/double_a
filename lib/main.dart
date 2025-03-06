@@ -20,10 +20,16 @@ import 'package:timezone/data/latest.dart' as tz;
 Dio dio = DioSingleton.instance;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  ByteData data =
-      await PlatformAssetBundle().load('assets/ca/lets-encrypt-r3.pem');
-  SecurityContext.defaultContext
-      .setTrustedCertificatesBytes(data.buffer.asUint8List());
+
+  try {
+    ByteData data =
+        await PlatformAssetBundle().load('assets/ca/lets-encrypt-r3.pem');
+    SecurityContext.defaultContext
+        .setTrustedCertificatesBytes(data.buffer.asUint8List());
+    log('Certificate loaded');
+  } catch (e) {
+    log('Cert loading error: $e');
+  }
 
   tz.initializeTimeZones();
   runApp(const MainApp());
@@ -40,11 +46,16 @@ Future<Response<dynamic>?> fetchTimetable() async {
     return Response(
       data: responseString,
       requestOptions: timetableResponse.requestOptions,
+      statusCode: timetableResponse.statusCode,
+      statusMessage: timetableResponse.statusMessage,
     );
+  } on DioException catch (e) {
+    log('Fetch timetable DioException: ${e.type} - ${e.message}');
+    return null;
   } catch (e) {
-    log('Error fetching timetable: $e');
+    log('Error fetching: $e');
+    return null;
   }
-  return null;
 }
 
 class MainApp extends StatefulWidget {
@@ -55,9 +66,11 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> {
-  Future<void> login(
+  Future<bool> login(
       {required String username, required String password}) async {
     try {
+      dio.options.validateStatus = (status) => status != null && status < 500;
+
       await dio.get('https://wwwccb.hochschule-bochum.de/campusInfo/index.php');
 
       FormData formData = FormData.fromMap({
@@ -72,12 +85,49 @@ class _MainAppState extends State<MainApp> {
       );
 
       if (loginResponse.statusCode == 200) {
-        log(loginResponse.data.toString());
+        log('Login successful');
+        return true;
       } else {
         log('Request failed: ${loginResponse.statusCode}');
+        return false;
       }
+    } on DioException catch (e) {
+      log('Login DioException: ${e.type} - ${e.message}');
+      if (e.type == DioExceptionType.badCertificate) {
+        log('Validation error: ${e.error}');
+        if (mounted) {
+          ScaffoldMessenger.of(_scaffoldKey.currentContext!).showSnackBar(
+            const SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text(
+                "Bitte Netzwerkverbindung überprüfen.",
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(_scaffoldKey.currentContext!).showSnackBar(
+            SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text(
+                  "Netzwerkfehler: ${e.message ?? _getDioErrorMessage(e.type)}"),
+            ),
+          );
+        }
+      }
+      return false;
     } catch (e) {
       log('Error on login: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(_scaffoldKey.currentContext!).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text("Fehler bei der Anmeldung: $e"),
+          ),
+        );
+      }
+      return false;
     }
   }
 
@@ -289,32 +339,20 @@ class _MainAppState extends State<MainApp> {
                                 children: [
                                   TextField(
                                     controller: usernameController,
-                                    decoration: InputDecoration(
+                                    decoration: getStandardInputDecoration(
+                                      context,
+                                      labelText: 'Benutzername',
                                       hintText: 'Benutzername eingeben',
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16.0, vertical: 12.0),
-                                      constraints: BoxConstraints(
-                                          maxWidth: MediaQuery.of(context)
-                                                  .size
-                                                  .width *
-                                              0.9),
                                     ),
                                   ),
                                   const SizedBox(height: 8.0),
                                   TextField(
                                     obscureText: true,
                                     controller: passwordController,
-                                    decoration: InputDecoration(
+                                    decoration: getStandardInputDecoration(
+                                      context,
+                                      labelText: 'Kennwort',
                                       hintText: 'Kennwort eingeben',
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16.0, vertical: 12.0),
-                                      constraints: BoxConstraints(
-                                          maxWidth: MediaQuery.of(context)
-                                                  .size
-                                                  .width *
-                                              0.9),
                                     ),
                                   ),
                                 ],
@@ -322,20 +360,41 @@ class _MainAppState extends State<MainApp> {
                               const SizedBox(height: 2.0),
                               ElevatedButton(
                                 onPressed: () async {
-                                  await login(
+                                  final loginSuccess = await login(
                                       username: usernameController.text,
                                       password: passwordController.text);
                                   if (context.mounted) {
                                     FocusScope.of(context).unfocus();
                                   }
-                                  {
-                                    sanitizeDropdownOptions(
-                                        context.mounted == true
-                                            ? context
-                                            : context,
-                                        (await fetchTimetable())!
-                                            .data
-                                            .toString());
+
+                                  if (loginSuccess) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                              _scaffoldKey.currentContext!)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          behavior: SnackBarBehavior.floating,
+                                          content: Text(
+                                            "Anmeldung erfolgreich!",
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    final response = await fetchTimetable();
+                                    if (response != null && context.mounted) {
+                                      sanitizeDropdownOptions(
+                                          context, response.data.toString());
+                                    } else if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          behavior: SnackBarBehavior.floating,
+                                          content: Text(
+                                            "Fehler beim Abrufen des Stundenplans",
+                                          ),
+                                        ),
+                                      );
+                                    }
                                   }
                                 },
                                 child: const Text('Anmelden'),
@@ -565,6 +624,23 @@ class _MainAppState extends State<MainApp> {
 
   final pageIndicatorController =
       PageController(viewportFraction: 1, initialPage: 0);
+
+  String _getDioErrorMessage(DioExceptionType type) {
+    switch (type) {
+      case DioExceptionType.connectionTimeout:
+        return 'Zeitüberschreitung bei der Verbindung';
+      case DioExceptionType.sendTimeout:
+        return 'Zeitüberschreitung beim Senden';
+      case DioExceptionType.receiveTimeout:
+        return 'Zeitüberschreitung beim Empfangen';
+      case DioExceptionType.connectionError:
+        return 'Verbindungsfehler';
+      case DioExceptionType.cancel:
+        return 'Anfrage abgebrochen';
+      default:
+        return 'Unbekannter Netzwerkfehler';
+    }
+  }
 }
 
 List<String> tableData = [];

@@ -8,7 +8,7 @@ ThemeData lightThemeData = FlexThemeData.light(
   swapColors: true,
   subThemesData: const FlexSubThemesData(
     blendOnLevel: 40,
-    useTextTheme: true,
+    useMaterial3Typography: true,
     useM2StyleDividerInM3: true,
     alignedDropdown: true,
     useInputDecoratorThemeInDialogs: true,
@@ -23,7 +23,7 @@ ThemeData darkThemeData = FlexThemeData.dark(
   blendLevel: 13,
   subThemesData: const FlexSubThemesData(
     blendOnLevel: 20,
-    useTextTheme: true,
+    useMaterial3Typography: true,
     useM2StyleDividerInM3: true,
     alignedDropdown: true,
     useInputDecoratorThemeInDialogs: true,
@@ -31,3 +31,25 @@ ThemeData darkThemeData = FlexThemeData.dark(
   visualDensity: FlexColorScheme.comfortablePlatformDensity,
   useMaterial3: true,
 );
+
+InputDecoration getStandardInputDecoration(
+  BuildContext context, {
+  String? labelText,
+  String? hintText,
+  Widget? prefixIcon,
+}) {
+  return InputDecoration(
+    labelText: labelText,
+    hintText: hintText,
+    prefixIcon: prefixIcon,
+    contentPadding:
+        const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+    enabledBorder: OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.orangeAccent),
+    ),
+    border: const OutlineInputBorder(),
+    constraints: BoxConstraints(
+      maxWidth: MediaQuery.of(context).size.width * 0.9,
+    ),
+  );
+}

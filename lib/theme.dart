@@ -45,7 +45,7 @@ InputDecoration getStandardInputDecoration(
     contentPadding:
         const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
     enabledBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: Colors.orangeAccent),
+      borderSide: BorderSide(color: Colors.orange[700]!),
     ),
     border: const OutlineInputBorder(),
     constraints: BoxConstraints(

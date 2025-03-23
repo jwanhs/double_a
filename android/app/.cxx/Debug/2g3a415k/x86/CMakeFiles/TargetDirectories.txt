@@ -1,0 +1,2 @@
+/Users/hajs/Documents/GitHub/double_a/android/app/.cxx/Debug/2g3a415k/x86/CMakeFiles/edit_cache.dir
+/Users/hajs/Documents/GitHub/double_a/android/app/.cxx/Debug/2g3a415k/x86/CMakeFiles/rebuild_cache.dir

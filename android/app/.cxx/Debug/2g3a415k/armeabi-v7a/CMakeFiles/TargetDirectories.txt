@@ -1,0 +1,2 @@
+/Users/hajs/Documents/GitHub/double_a/android/app/.cxx/Debug/2g3a415k/armeabi-v7a/CMakeFiles/edit_cache.dir
+/Users/hajs/Documents/GitHub/double_a/android/app/.cxx/Debug/2g3a415k/armeabi-v7a/CMakeFiles/rebuild_cache.dir

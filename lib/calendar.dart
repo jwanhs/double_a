@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:device_calendar/device_calendar.dart';
 import 'package:double_a/models.dart';
 import 'package:flutter/material.dart';
@@ -8,9 +6,13 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 class CustomCalendar extends StatefulWidget {
-  const CustomCalendar({super.key, required this.classSessions});
+  const CustomCalendar(
+      {super.key,
+      required this.classSessions,
+      required this.calendarController});
 
-  final List<ClassSession> classSessions;
+  final List<Class> classSessions;
+  final CalendarController calendarController;
 
   @override
   State<CustomCalendar> createState() => _CustomCalendarState();
@@ -18,6 +20,12 @@ class CustomCalendar extends StatefulWidget {
 
 class _CustomCalendarState extends State<CustomCalendar> {
   bool exportLoading = false;
+
+  @override
+  void setState(VoidCallback fn) {
+    if (!mounted) return;
+    super.setState(fn);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +37,7 @@ class _CustomCalendarState extends State<CustomCalendar> {
           height: MediaQuery.of(context).size.height * 0.8,
           width: MediaQuery.of(context).size.width * 0.9,
           child: SfCalendar(
+            controller: widget.calendarController,
             headerStyle: const CalendarHeaderStyle(
               textAlign: TextAlign.right,
               backgroundColor: Color(0xFFFBEFE3),
@@ -59,7 +68,7 @@ class _CustomCalendarState extends State<CustomCalendar> {
   }
 
   Future<void> exportToDeviceCalendar(
-      BuildContext context, List<ClassSession> sessions) async {
+      BuildContext context, List<Class> sessions) async {
     tz.initializeTimeZones();
     final DeviceCalendarPlugin deviceCalendarPlugin = DeviceCalendarPlugin();
 
@@ -144,14 +153,7 @@ class _CustomCalendarState extends State<CustomCalendar> {
           until: tz.TZDateTime.now(tz.local).add(const Duration(days: 119)),
         );
 
-        final createEventResult =
-            await deviceCalendarPlugin.createOrUpdateEvent(eventToCreate);
-
-        if (createEventResult?.isSuccess ?? false) {
-          log('Event created: ${session.veranstatlung} from ${startTime.toString()} to ${endTime.toString()}');
-        } else {
-          log('Failed to create event: ${session.veranstatlung}');
-        }
+        await deviceCalendarPlugin.createOrUpdateEvent(eventToCreate);
       }
 
       if (context.mounted) {
@@ -162,7 +164,6 @@ class _CustomCalendarState extends State<CustomCalendar> {
                 '${sessions.length} Veranstaltungen in den Gerätekalender exportiert'),
           ),
         );
-
         setState(() {
           exportLoading = false;
         });
@@ -177,7 +178,7 @@ class ClassDataSource extends CalendarDataSource {
   }
 }
 
-List<Appointment> getAppointments(List<ClassSession> sessions) {
+List<Appointment> getAppointments(List<Class> sessions) {
   List<Appointment> appointments = [];
 
   for (var session in sessions) {

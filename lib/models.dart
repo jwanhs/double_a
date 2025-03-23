@@ -1,89 +1,44 @@
-
 import 'package:animated_custom_dropdown/custom_dropdown.dart';
 
-class Lecturer with CustomDropdownListFilter {
+class FilterableItem with CustomDropdownListFilter {
   final String name;
-  const Lecturer(this.name);
+  const FilterableItem(this.name);
 
   @override
-  String toString() {
-    return name;
-  }
+  String toString() => name;
 
   @override
-  bool filter(String query) {
-    return name.toLowerCase().contains(query.toLowerCase());
-  }
+  bool filter(String query) => name.toLowerCase().contains(query.toLowerCase());
 }
 
-class Semester with CustomDropdownListFilter {
-  final String name;
-  const Semester(this.name);
-
-  @override
-  String toString() {
-    return name;
-  }
-
-  @override
-  bool filter(String query) {
-    return name.toLowerCase().contains(query.toLowerCase());
-  }
+class Lecturer extends FilterableItem {
+  const Lecturer(super.name);
 }
 
-class Room with CustomDropdownListFilter {
-  final String name;
-  const Room(this.name);
-
-  @override
-  String toString() {
-    return name;
-  }
-
-  @override
-  bool filter(String query) {
-    return name.toLowerCase().contains(query.toLowerCase());
-  }
+class Semester extends FilterableItem {
+  const Semester(super.name);
 }
 
-class Day with CustomDropdownListFilter {
-  final String name;
-  const Day(this.name);
-
-  @override
-  String toString() {
-    return name;
-  }
-
-  @override
-  bool filter(String query) {
-    return name.toLowerCase().contains(query.toLowerCase());
-  }
+class Room extends FilterableItem {
+  const Room(super.name);
 }
 
-class Time with CustomDropdownListFilter {
-  final String name;
-  const Time(this.name);
-
-  @override
-  String toString() {
-    return name;
-  }
-
-  @override
-  bool filter(String query) {
-    return name.toLowerCase().contains(query.toLowerCase());
-  }
+class Day extends FilterableItem {
+  const Day(super.name);
 }
 
-class ClassSession {
+class Time extends FilterableItem {
+  const Time(super.name);
+}
+
+class Class {
   final String dozent;
   final String veranstatlung;
   final String tag;
   final String zeit;
   final String raum;
 
-  ClassSession({
+  const Class({
     required this.dozent,
     required this.veranstatlung,
     required this.tag,

@@ -37,6 +37,7 @@ class Class {
   final String tag;
   final String zeit;
   final String raum;
+  final String? semester;
 
   const Class({
     required this.dozent,
@@ -44,5 +45,6 @@ class Class {
     required this.tag,
     required this.zeit,
     required this.raum,
+    this.semester,
   });
 }

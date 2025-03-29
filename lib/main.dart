@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:animated_custom_dropdown/custom_dropdown.dart';
 import 'package:dio/dio.dart';
 import 'package:double_a/calendar.dart';
 import 'package:double_a/dio_singleton.dart';
@@ -9,6 +6,9 @@ import 'package:double_a/models.dart';
 import 'package:double_a/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:animated_custom_dropdown/custom_dropdown.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
@@ -141,7 +141,7 @@ class _MainAppState extends State<MainApp> {
       rooms.remove(rooms.keys.elementAt(1));
       days[days.keys.first] = const Day('Alle Tage');
       times[times.keys.first] = const Time('Alle Zeiten');
-      semesters.remove(semesters.keys.elementAt(0));
+      semesters[semesters.keys.first] = const Semester('Alle Semester');
 
       lecturerController.value = lecturers.values.first;
       roomController.value = rooms.values.first;
@@ -156,7 +156,7 @@ class _MainAppState extends State<MainApp> {
     }
   }
 
-  Future<void> login(
+  Future<bool> login(
       {required String username, required String password}) async {
     try {
       await dio.get('https://wwwccb.hochschule-bochum.de/campusInfo/index.php');
@@ -171,10 +171,12 @@ class _MainAppState extends State<MainApp> {
         'https://wwwccb.hochschule-bochum.de/campusInfo/index.php',
         data: formData,
       );
+      return true;
     } catch (e) {
       _showErrorSnackBar(
-        Exception(e.toString()),
+        e is Exception ? e : Exception(e.toString()),
       );
+      return false;
     }
   }
 
@@ -250,7 +252,9 @@ class _MainAppState extends State<MainApp> {
         'semester': semesterController.value!.name,
       });
     } catch (e) {
-      _showErrorSnackBar(Exception(e.toString()));
+      _showErrorSnackBar(
+        e is Exception ? e : Exception(e.toString()),
+      );
     }
   }
 
@@ -275,7 +279,9 @@ class _MainAppState extends State<MainApp> {
 
       setState(() {});
     } catch (e) {
-      _showErrorSnackBar(Exception(e.toString()));
+      _showErrorSnackBar(
+        e is Exception ? e : Exception(e.toString()),
+      );
     }
   }
 
@@ -404,7 +410,7 @@ class _MainAppState extends State<MainApp> {
                               const SizedBox(height: 2.0),
                               ElevatedButton(
                                 onPressed: () async {
-                                  await login(
+                                  bool loginSuccess = await login(
                                       username: usernameController.text,
                                       password: passwordController.text);
 
@@ -499,12 +505,31 @@ class _MainAppState extends State<MainApp> {
                                 onPressed: semesterController.value == null
                                     ? null
                                     : () async {
+                                        if (semesterController.value!.name == 'Alle Semester' &&
+                                            lecturerController.value!.name ==
+                                                'Alle Dozenten' &&
+                                            roomController.value!.name ==
+                                                'Alle Räume') {
+                                          _showErrorSnackBar(
+                                            Exception(
+                                                'Bitte wählen Sie mindestens einen Dozenten oder Raum aus, um die Suche einzugrenzen.'),
+                                          );
+                                          return;
+                                        }
                                         await searchTable();
 
                                         if (classSessions.isNotEmpty) {
                                           calendarController.displayDate =
                                               getAppointments(classSessions)
-                                                  .first
+                                                  .firstWhere(
+                                                    (session) =>
+                                                        session.startTime.day ==
+                                                        DateTime.now().day,
+                                                    orElse: () =>
+                                                        getAppointments(
+                                                      classSessions,
+                                                    ).first,
+                                                  )
                                                   .startTime;
                                           pageIndicatorController.animateToPage(
                                             1,
@@ -580,6 +605,7 @@ class _MainAppState extends State<MainApp> {
       dayController.value!.name == 'Alle Tage',
       timeController.value!.name == 'Alle Zeiten',
       roomController.value!.name == 'Alle Räume',
+      semesterController.value!.name == 'Alle Semester',
     ];
 
     int index = 0;
@@ -591,6 +617,9 @@ class _MainAppState extends State<MainApp> {
       String tag = filtering[2] ? data[index++] : dayController.value!.name;
       String zeit = filtering[3] ? data[index++] : timeController.value!.name;
       String raum = filtering[4] ? data[index++] : roomController.value!.name;
+      String semester =
+          filtering[5] ? data[index++] : roomController.value!.name;
+
       sessions.add(Class(
         dozent: dozent,
         veranstatlung: veranstaltung,

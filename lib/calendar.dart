@@ -183,6 +183,10 @@ List<Appointment> getAppointments(List<Class> sessions) {
 
   for (var session in sessions) {
     int weekday = _parseWeekday(session.tag);
+    String subject = session.veranstatlung;
+    if (session.semester != null) {
+      subject = "$subject (${session.semester})";
+    }
 
     var times = session.zeit.split('-');
     var startTime = _parseTime(times[0]);

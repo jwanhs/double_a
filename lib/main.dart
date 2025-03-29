@@ -414,24 +414,26 @@ class _MainAppState extends State<MainApp> {
                                       username: usernameController.text,
                                       password: passwordController.text);
 
-                                  final timetableRequest =
-                                      await fetchTimetable();
-                                  if (timetableRequest != null &&
-                                      context.mounted) {
-                                    sanitizeDropdownOptions(context,
-                                        timetableRequest.data.toString());
+                                  if (loginSuccess) {
+                                    final timetableRequest =
+                                        await fetchTimetable();
+                                    if (timetableRequest != null &&
+                                        context.mounted) {
+                                      sanitizeDropdownOptions(context,
+                                          timetableRequest.data.toString());
 
-                                    FocusScope.of(context).unfocus();
-                                    ScaffoldMessenger.of(
-                                            _scaffoldKey.currentContext!)
-                                        .showSnackBar(
-                                      const SnackBar(
-                                        behavior: SnackBarBehavior.floating,
-                                        content: Text(
-                                          'Sie können Ihre Suche jetzt verfeinern!',
+                                      FocusScope.of(context).unfocus();
+                                      ScaffoldMessenger.of(
+                                              _scaffoldKey.currentContext!)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          behavior: SnackBarBehavior.floating,
+                                          content: Text(
+                                            'Sie können Ihre Suche jetzt verfeinern!',
+                                          ),
                                         ),
-                                      ),
-                                    );
+                                      );
+                                    }
                                   }
                                 },
                                 child: const Text('Anmelden'),
@@ -512,7 +514,7 @@ class _MainAppState extends State<MainApp> {
                                                 'Alle Räume') {
                                           _showErrorSnackBar(
                                             Exception(
-                                                'Bitte wählen Sie mindestens einen Dozenten oder Raum aus, um die Suche einzugrenzen.'),
+                                                'Bitte wählen Sie mindestens einen Dozenten oder Raum aus, um die Suche für alle Semester einzugrenzen.'),
                                           );
                                           return;
                                         }
@@ -621,12 +623,12 @@ class _MainAppState extends State<MainApp> {
           filtering[5] ? data[index++] : roomController.value!.name;
 
       sessions.add(Class(
-        dozent: dozent,
-        veranstatlung: veranstaltung,
-        tag: tag,
-        zeit: zeit,
-        raum: raum,
-      ));
+          dozent: dozent,
+          veranstatlung: veranstaltung,
+          tag: tag,
+          zeit: zeit,
+          raum: raum,
+          semester: semester));
     }
     return sessions;
   }
